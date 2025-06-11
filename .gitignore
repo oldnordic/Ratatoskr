@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual Environment
+venv/
+
+# IDE / Editor Files
+.vscode/
+.idea/
+
+# OS / Temporary Files
+.DS_Store
+*.swp
+
+# Application Data & Logs
+application.log
+temp_speech.wav
+tts_models/
+
+# Environment variables
+.env
