@@ -6,9 +6,9 @@ import wave
 from tempfile import NamedTemporaryFile
 
 # --- Initialization ---
-# This downloads the small English model. It only happens once.
-logging.info("Loading local Whisper STT model (tiny.en)...")
-stt_model = whisper.load_model("tiny.en")
+# --- CHANGE: Upgraded the model from "tiny.en" to "small.en" for better accuracy ---
+logging.info("Loading local Whisper STT model (small.en)...")
+stt_model = whisper.load_model("small.en")
 logging.info("Whisper STT model loaded.")
 
 
@@ -18,9 +18,11 @@ def listen_for_command():
     using the local Whisper model.
     """
     recognizer = sr.Recognizer()
+    recognizer.pause_threshold = 1.5
+
     with sr.Microphone() as source:
         logging.info("Adjusting for ambient noise...")
-        recognizer.adjust_for_ambient_noise(source, duration=1)
+        recognizer.adjust_for_ambient_noise(source, duration=0.5)
         logging.info("Listening for audio...")
         try:
             audio_data = recognizer.listen(source, timeout=5, phrase_time_limit=10)

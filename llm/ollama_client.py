@@ -1,26 +1,19 @@
-import ollama
-import config
 import logging
 
-def get_ai_response(history: list):
-    """
-    Sends the conversation history to the Ollama model and gets a response.
-    
-    Args:
-        history (list): A list of message dictionaries.
+# This file is simplified because the main logic for calling Ollama
+# has been moved into a top-level worker function in `main.py`
+# to support the `multiprocessing` solution, which was necessary
+# to resolve the conflict with the PyQt event loop.
 
-    Returns:
-        str: The AI's response content.
+def get_llm_client():
     """
-    try:
-        logging.info(f"Sending request to Ollama model: {config.MODEL_NAME}")
-        response = ollama.chat(
-            model=config.MODEL_NAME,
-            messages=history
-        )
-        logging.info("Received response from Ollama successfully.")
-        return response['message']['content']
-    except Exception as e:
-        logging.error(f"Error communicating with Ollama: {e}")
-        # Propagate the error so the main thread can catch it
-        raise e
+    This function can be expanded in the future to handle more complex
+    client configurations if needed. For now, it serves as a placeholder
+    as the client is created directly in the worker process for stability.
+    """
+    logging.info("get_llm_client called (placeholder).")
+    return None
+
+# The original get_ai_response function is no longer needed here,
+# as its logic is now inside the `worker_process` function in main.py to
+# ensure it runs in a separate, isolated process.

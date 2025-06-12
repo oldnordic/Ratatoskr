@@ -1,7 +1,6 @@
 PyQt5
 ollama
 # For local Speech-to-Text
-openai-whisper
 # For playing audio from TTS
 sounddevice
 # For local, high-quality Text-to-Speech
@@ -9,3 +8,11 @@ sounddevice
 # For Long-Term Memory (using PyTorch-based models)
 chromadb
 sentence-transformers
+pyttsx3
+# For Speech-to-Text
+SpeechRecognition
+pyAudio
+
+# For local, high-quality Text-to-Speech
+piper-phonemize-fix
+onnxruntime-gpu

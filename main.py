@@ -1,58 +1,84 @@
 import sys
 import logging
+import multiprocessing
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTextEdit, QLineEdit, QPushButton, QGroupBox, QRadioButton
 )
-from PyQt5.QtCore import QObject, QThread, pyqtSignal
+from PyQt5.QtCore import QTimer
 
 # Import our modules
 from logging_config import setup_logging
-from llm.ollama_client import get_ai_response
 from voice.text_to_speech import speak
 from voice.speech_to_text import listen_for_command
-from memory.long_term import retrieve_relevant_memories, store_memory
+# --- CHANGE: Memory imports are no longer needed in the main app ---
+# from memory.long_term import store_memory
 
-# --- Worker for background tasks ---
-class Worker(QObject):
-    finished = pyqtSignal(object)
-    error = pyqtSignal(str)
+# --- Top-level function for the worker process ---
+def worker_process(queue, user_text, conversation_history, model_name):
+    """
+    This function runs in a separate process. The memory feature is disabled.
+    """
+    import requests
+    import json
+    import logging
 
-    def __init__(self, task_func, *args, **kwargs):
-        super().__init__()
-        self.task_func = task_func
-        self.args = args
-        self.kwargs = kwargs
+    try:
+        logging.info(f"Worker process started for: '{user_text}'")
+        
+        # --- CHANGE: Memory retrieval is disabled for this test ---
+        # relevant_memories = retrieve_relevant_memories(user_text)
+        relevant_memories = []
+        
+        current_context = conversation_history.copy()
+        if relevant_memories: # This block will not run
+            memory_context = "Remember these potentially relevant facts from past conversations: " + "; ".join(relevant_memories)
+            current_context.insert(-1, {"role": "system", "content": memory_context})
 
-    def run(self):
-        try:
-            logging.info(f"Starting background task: {self.task_func.__name__}")
-            result = self.task_func(*self.args, **self.kwargs)
-            logging.info(f"Background task {self.task_func.__name__} finished successfully.")
-            self.finished.emit(result)
-        except Exception as e:
-            import traceback
-            logging.error(f"Error in background task: {traceback.format_exc()}")
-            self.error.emit(str(e))
+        logging.info("Worker: Calling Ollama API...")
+        url = "http://127.0.0.1:11434/api/chat"
+        payload = { "model": model_name, "messages": current_context, "stream": False }
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
+        response.raise_for_status()
+        response_data = response.json()
+        ai_text = response_data.get('message', {}).get('content', '')
+        
+        # --- CHANGE: Storing memory is disabled for this test ---
+        # last_user_message = conversation_history[-1]['content']
+        # store_memory(last_user_message)
+
+        queue.put(ai_text)
+
+    except Exception as e:
+        logging.error(f"Error in worker process: {e}")
+        error_message = f"Error in background process: {e}"
+        queue.put(error_message)
+
 
 # --- Main Application Window ---
-class MycroftApp(QMainWindow):
+class RatatoskrApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Mycroft AI Assistant")
-        self.setGeometry(100, 100, 800, 600)
-
+        self.setWindowTitle("Ratatoskr AI Assistant (Multithreaded Test)")
+        try:
+            from config import MODEL_NAME
+            self.model_name = MODEL_NAME
+        except (ImportError, AttributeError):
+            self.model_name = "llama3.1:8b"
         self.conversation_history = []
-        self.running_threads = []
         self.current_mode = "hybrid"
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
+        self.mp_queue = None
+        self.response_timer = QTimer(self)
+        self.response_timer.timeout.connect(self.check_for_response)
         self.setup_ui()
-        logging.info("MycroftApp initialized.")
+        logging.info("RatatoskrApp initialized.")
 
     def setup_ui(self):
-        # --- Mode Selection ---
+        # UI setup remains the same...
         mode_group = QGroupBox("Interaction Mode")
         mode_layout = QHBoxLayout()
         self.radio_hybrid = QRadioButton("Hybrid (Text & Voice)")
@@ -67,8 +93,6 @@ class MycroftApp(QMainWindow):
         mode_layout.addWidget(self.radio_text)
         mode_group.setLayout(mode_layout)
         self.main_layout.addWidget(mode_group)
-
-        # --- Other UI Components ---
         self.conversation_view = QTextEdit()
         self.conversation_view.setReadOnly(True)
         self.conversation_view.setStyleSheet("font-size: 14px;")
@@ -101,8 +125,15 @@ class MycroftApp(QMainWindow):
         self.listen_button.setEnabled(not is_text_mode)
 
     def start_listening(self):
+        from threading import Thread
         self.set_ui_busy(True, listening=True)
-        self.run_in_thread(listen_for_command, self.on_speech_recognized)
+        thread = Thread(target=self.listen_and_process)
+        thread.daemon = True
+        thread.start()
+
+    def listen_and_process(self):
+        text = listen_for_command()
+        QTimer.singleShot(0, lambda: self.on_speech_recognized(text))
 
     def on_speech_recognized(self, text):
         self.set_ui_busy(False, listening=False)
@@ -114,91 +145,66 @@ class MycroftApp(QMainWindow):
         user_text = self.input_box.text().strip()
         if not user_text:
             return
-        self.set_ui_busy(True)
+        self.set_ui_busy(True, thinking=True)
         self.conversation_view.append(f"<b>You:</b> {user_text}")
         self.conversation_history.append({"role": "user", "content": user_text})
         self.input_box.clear()
-        self.run_in_thread(self.prepare_and_get_response, self.handle_ai_response, user_text=user_text)
-
-    def prepare_and_get_response(self, user_text):
-        """This function runs in the background to prepare context and get an AI response."""
-        logging.info("Preparing response...")
-        
-        logging.info("Step 1: Retrieving relevant memories...")
-        relevant_memories = retrieve_relevant_memories(user_text)
-        logging.info("Step 1 complete.")
-        
-        logging.info("Step 2: Assembling context for LLM...")
-        current_context = self.conversation_history.copy()
-        if relevant_memories:
-            memory_context = "Remember these potentially relevant facts from past conversations: " + "; ".join(relevant_memories)
-            # Insert system prompt with memories before the last user message
-            current_context.insert(-1, {"role": "system", "content": memory_context})
-        logging.info("Step 2 complete.")
-        
-        logging.info("Step 3: Calling LLM...")
-        ai_text = get_ai_response(history=current_context)
-        logging.info("Step 3 complete.")
-        
-        return ai_text
+        from multiprocessing import Process, Queue
+        self.mp_queue = Queue()
+        process_args = (self.mp_queue, user_text, self.conversation_history, self.model_name)
+        self.ai_process = Process(target=worker_process, args=process_args)
+        self.ai_process.daemon = True
+        self.ai_process.start()
+        self.response_timer.start(100)
+    
+    def check_for_response(self):
+        if self.mp_queue and not self.mp_queue.empty():
+            self.response_timer.stop()
+            ai_text = self.mp_queue.get()
+            self.handle_ai_response(ai_text)
 
     def handle_ai_response(self, ai_text):
         self.set_ui_busy(False, thinking=False)
+        if ai_text.startswith("Error:"):
+             self.handle_task_error(ai_text)
+             return
         if self.current_mode != "voice_only":
-            self.conversation_view.append(f"<b>Mycroft:</b> {ai_text}\n")
+            self.conversation_view.append(f"<b>Ratatoskr:</b> {ai_text}\n")
         self.conversation_history.append({"role": "assistant", "content": ai_text})
         if self.current_mode != "text_only":
             speak(ai_text)
-        last_user_message = self.conversation_history[-2]['content']
-        store_memory(last_user_message)
-
+        
     def handle_task_error(self, error_message):
-        logging.error(f"Displaying error in GUI: {error_message}")
         self.set_ui_busy(False, thinking=False, listening=False)
-        self.conversation_view.append(f"<b style='color:red;'>Error:</b> {error_message}\n")
-
-    def run_in_thread(self, task_func, on_finish_slot, *args, **kwargs):
-        thread = QThread()
-        worker = Worker(task_func, *args, **kwargs)
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.finished.connect(on_finish_slot)
-        worker.error.connect(self.handle_task_error)
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(thread.deleteLater)
-        self.running_threads.append(thread)
-        thread.finished.connect(lambda: self.running_threads.remove(thread))
-        thread.start()
+        self.conversation_view.append(f"<b style='color:red;'>{error_message}</b>\n")
         
     def set_ui_busy(self, is_busy, thinking=True, listening=False):
-        self.update_ui_for_mode() # First, set buttons to their default state for the current mode
-        # Then, disable all if busy
+        self.update_ui_for_mode()
         if is_busy:
             self.input_box.setEnabled(False)
             self.send_button.setEnabled(False)
             self.listen_button.setEnabled(False)
-
-        # Status message handling
         cursor = self.conversation_view.textCursor()
         cursor.movePosition(cursor.End)
         cursor.select(cursor.BlockUnderCursor)
         selected_text = cursor.selectedText().strip()
-        if selected_text.endswith("Thinking...") or selected_text.endswith("Listening..."):
+        if selected_text.endswith("Thinking..."):
             cursor.removeSelectedText()
         if is_busy:
             if thinking:
-                self.conversation_view.append("<b>Mycroft:</b> Thinking...")
+                self.conversation_view.append("<b>Ratatoskr:</b> Thinking...")
             elif listening:
                 self.listen_button.setText("Listening...")
-        else: # Not busy, so restore default listen button text
+        else:
             self.listen_button.setText("Listen 🎙️")
             self.input_box.setFocus()
 
 if __name__ == "__main__":
+    from multiprocessing import freeze_support, set_start_method
+    set_start_method('spawn', force=True)
+    freeze_support()
     setup_logging()
     app = QApplication(sys.argv)
-    window = MycroftApp()
+    window = RatatoskrApp()
     window.show()
     sys.exit(app.exec_())

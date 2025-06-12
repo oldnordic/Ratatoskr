@@ -17,6 +17,7 @@ venv/
 application.log
 temp_speech.wav
 tts_models/
+chroma_db/
 
 # Environment variables
 .env

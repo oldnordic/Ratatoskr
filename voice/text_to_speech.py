@@ -1,21 +1,20 @@
 import logging
 import sounddevice as sd
-import wave
+import numpy as np
 import threading
-from piper.voice import PiperVoice # Correct import path
+from piper.voice import PiperVoice
 
 # --- Configuration ---
-VOICE_MODEL_PATH = 'tts_models/en_US-ryan-high.onnx' # Path to the .onnx file
+VOICE_MODEL_PATH = 'tts_models/en_US-ryan-high.onnx' 
 
 # --- Initialization ---
 voice = None
 logging.info("Loading Piper TTS voice model...")
 try:
-    # UPDATED: This is the new, correct way to load the voice model.
     voice = PiperVoice.load(VOICE_MODEL_PATH)
-    logging.info("Piper TTS model loaded successfully.")
+    logging.info(f"Piper TTS model '{VOICE_MODEL_PATH}' loaded successfully.")
 except Exception as e:
-    logging.error(f"Failed to load Piper TTS model: {e}")
+    logging.error(f"Failed to load Piper TTS model from '{VOICE_MODEL_PATH}'. Error: {e}")
 
 def speak(text_to_speak):
     """
@@ -34,24 +33,16 @@ def speak(text_to_speak):
 def _speak_thread(text):
     """Worker function to synthesize and play audio."""
     try:
-        # Create an in-memory audio buffer
         audio_stream = voice.synthesize_stream_raw(text)
-
-        # Play the audio stream directly
-        # Note: You might need to find the sample rate from the voice's config if not default
-        # For now, we assume a common sample rate like 22050
         samplerate = voice.config.sample_rate
-        
-        # Collect audio data from the generator
-        audio_data = b''
-        for audio_bytes in audio_stream:
-            audio_data += audio_bytes
+        audio_data = b''.join(audio_stream)
             
         if audio_data:
-             # sounddevice expects numpy array, let's convert it
-             import numpy as np
              audio_np = np.frombuffer(audio_data, dtype=np.int16)
              sd.play(audio_np, samplerate=samplerate)
+             
+             # This line is critical. It blocks this background thread
+             # until the sound is done, but does NOT block the main UI.
              sd.wait()
 
     except Exception as e:
