@@ -23,19 +23,23 @@ def perform_web_search(query: str) -> str:
     """
     logging.info(f"Performing web search for: '{query}'")
     
-    # --- CHANGE: Create a more focused search query ---
-    # We add keywords and site restrictions for better results.
-    refined_query = f"top news headlines site:dw.com"
+    # --- CHANGE START ---
+    # Use the 'query' parameter directly for the search
+    # If you want to restrict searches to dw.com for all web searches,
+    # you can keep `f"{query} site:dw.com"`.
+    # For a general web search, simply use `query`.
+    refined_query = query # Changed from f"top news headlines site:dw.com"
+    # --- CHANGE END ---
+
     logging.info(f"Refined search query to: '{refined_query}'")
     
     try:
         with DDGS() as ddgs:
-            # --- CHANGE: Added timelimit='d' to get results from the last day ---
             results = [r for r in ddgs.text(refined_query, max_results=3, timelimit='d')]
             
             if not results:
                 logging.warning("Web search returned no recent results.")
-                return "I couldn't find any news from the last day on DW.com."
+                return "I couldn't find any recent results for your query."
 
             all_content = []
             for i, result in enumerate(results):
@@ -55,7 +59,7 @@ def perform_web_search(query: str) -> str:
                     logging.warning(f"Could not fetch or read URL {url}: {e}")
 
             if not all_content:
-                return "Could not retrieve readable content from today's news."
+                return "Could not retrieve readable content for your query."
 
             return "\n\n".join(all_content)
 
