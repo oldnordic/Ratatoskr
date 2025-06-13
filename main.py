@@ -1,11 +1,12 @@
 import sys
 import logging
 import multiprocessing
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTextEdit, QLineEdit, QPushButton, QGroupBox, QRadioButton
 )
-from PyQt5.QtCore import QTimer
+from PyQt6.QtGui import QTextCursor
+from PyQt6.QtCore import QTimer
 
 # Import our modules
 from logging_config import setup_logging
@@ -15,20 +16,17 @@ from memory.long_term import store_memory
 from tools.web_search import perform_web_search
 
 # --- Top-level function for the worker process ---
-# This must be a top-level function to be used with multiprocessing.
 def worker_process(queue, user_text, conversation_history, model_name):
     """
-    This function runs in a separate process and handles all the heavy lifting:
-    deciding to search the web, retrieving memories, and calling the LLM.
+    This function runs in a separate process and handles all the heavy lifting.
     """
-    # Imports must be inside the worker for the 'spawn' method
     import requests
     import json
     import logging
     from memory.long_term import retrieve_relevant_memories
 
     try:
-        # --- Agentic Step 1: Decide if a web search is needed ---
+        # Agentic Step 1: Decide if a web search is needed
         search_decision_prompt = f"""You must decide if a web search is necessary to answer the user's query. Answer only with the single word "yes" or "no".
         The user's query is: "{user_text}"
         
@@ -53,7 +51,7 @@ def worker_process(queue, user_text, conversation_history, model_name):
             if relevant_memories:
                 context_from_tool = "Use the following retrieved context to answer the user's question: " + "; ".join(relevant_memories)
 
-        # --- Agentic Step 2: Generate final response ---
+        # Agentic Step 2: Generate final response
         final_context = conversation_history.copy()
         if context_from_tool:
             final_context.insert(-1, {"role": "system", "content": context_from_tool})
@@ -64,7 +62,6 @@ def worker_process(queue, user_text, conversation_history, model_name):
         final_response.raise_for_status()
         ai_text = final_response.json().get('message', {}).get('content', '')
         
-        # Store memory of the user's prompt
         store_memory(user_text)
         
         queue.put(ai_text)
@@ -78,7 +75,7 @@ def worker_process(queue, user_text, conversation_history, model_name):
 class RatatoskrApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Ratatoskr AI Assistant")
+        self.setWindowTitle("Ratatoskr AI Assistant (PyQt6)")
         self.setGeometry(100, 100, 800, 600)
 
         try:
@@ -98,7 +95,7 @@ class RatatoskrApp(QMainWindow):
         self.response_timer.timeout.connect(self.check_for_response)
         
         self.setup_ui()
-        logging.info("RatatoskrApp initialized.")
+        logging.info("RatatoskrApp initialized with PyQt6.")
 
     def setup_ui(self):
         mode_group = QGroupBox("Interaction Mode")
@@ -216,11 +213,15 @@ class RatatoskrApp(QMainWindow):
             self.listen_button.setEnabled(False)
 
         cursor = self.conversation_view.textCursor()
-        cursor.movePosition(cursor.End)
-        cursor.select(cursor.BlockUnderCursor)
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        
+        # Use the correct PyQt6 enum 'SelectionType'
+        cursor.select(QTextCursor.SelectionType.BlockUnderCursor)
         selected_text = cursor.selectedText().strip()
-        if selected_text.endswith("Thinking..."):
+        
+        if selected_text.endswith("Thinking...") or selected_text.endswith("Listening..."):
             cursor.removeSelectedText()
+            
         if is_busy:
             if thinking:
                 self.conversation_view.append("<b>Ratatoskr:</b> Thinking...")
@@ -239,4 +240,5 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = RatatoskrApp()
     window.show()
-    sys.exit(app.exec_())
+    # Use the correct PyQt6 method name 'exec'
+    sys.exit(app.exec())

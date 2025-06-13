@@ -1,15 +1,23 @@
-PyQt5
+# For the User Interface
+PyQt6
+# For the Ollama LLM
 ollama
+# For making stable HTTP requests (used by LangChain)
 requests
-SpeechRecognition
+# For local Speech-to-Text
 openai-whisper
+speech-recognition
+# For audio playback
+sounddevice
+# For web scraping and parsing
 beautifulsoup4
+# For programmatic web search
 duckduckgo-search
+# For vector similarity search
 faiss-cpu
 numpy
+# For creating text embeddings
 sentence-transformers
-# For High-Quality TTS and other AI Models
-torch
-torchaudio
-TTS
-sounddevice
+# --- LangChain Libraries ---
+langchain
+langchain-community
