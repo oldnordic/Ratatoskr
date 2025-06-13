@@ -32,6 +32,15 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
 
     # On Arch Linux / CachyOS:
     sudo pacman -S ffmpeg portaudio
+
+    # On Windows (via Chocolatey - Recommended for ease of use):
+    # Install Chocolatey from [https://chocolatey.org/install](https://chocolatey.org/install)
+    choco install ffmpeg portaudio
+
+    # On Windows (Manual Installation):
+    # - Download ffmpeg from [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html) and add it to your system PATH.
+    # - Download PortAudio from [http://www.portaudio.com/download.html](http://www.portaudio.com/download.html) and follow its build instructions.
+    #   Ensure the compiled libraries (e.g., portaudio_x64.dll) are in your system PATH or Python's environment.
     ```
 
 ### Installation Steps
@@ -45,8 +54,17 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
 
 2.  **Create and Activate a Virtual Environment:**
     ```bash
+    # On Linux/macOS:
     python3 -m venv venv
     source venv/bin/activate
+
+    # On Windows (Command Prompt):
+    python -m venv venv
+    venv\Scripts\activate
+
+    # On Windows (PowerShell):
+    python -m venv venv
+    .\venv\Scripts\Activate.ps1
     ```
 
 3.  **Install Python Dependencies:**
