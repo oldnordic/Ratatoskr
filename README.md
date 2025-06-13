@@ -72,6 +72,22 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
     ```bash
     pip install -r requirements.txt
     ```
+    Note on GPU Acceleration (PyTorch):
+    The requirements.txt file installs the CPU version of PyTorch by default. For GPU acceleration (highly recommended for performance), you will need to install the specific PyTorch package for your graphics card (AMD or Nvidia) and your ROCm/CUDA version before running        pip install -r requirements.txt.
+    Visit the official PyTorch installation page: https://pytorch.org/get-started/locally/
+    Select your operating system, package manager (pip), CUDA/ROCm version (if applicable), and PyTorch version.
+    Copy the generated pip install command (which often includes specific --index-url flags) and run it in your active virtual environment.
+    After successfully installing the GPU-enabled PyTorch, you can then run pip install -r requirements.txt to install the remaining dependencies.
+
+    Download TTS Voice Model:
+        Go to the Piper voice samples page.
+        Find a voice you like (e.g., en_US-lessac-medium).
+        Create a folder named tts_models in the project root.
+        Download both the .onnx and .onnx.json files for your chosen voice and place them in the tts_models folder.
+
+Running the Application
+
+With your virtual environment active and Ollama running, start the assistant:
 
 4.  **Download TTS Voice Model:**
     -   Go to the [Piper voice samples page](https://rhasspy.github.io/piper-samples/).
