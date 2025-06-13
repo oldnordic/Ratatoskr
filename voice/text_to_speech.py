@@ -1,49 +1,60 @@
 import logging
+import torch
+from TTS.api import TTS
 import sounddevice as sd
 import numpy as np
 import threading
-from piper.voice import PiperVoice
 
-# --- Configuration ---
-VOICE_MODEL_PATH = 'tts_models/en_US-ryan-high.onnx' 
+# --- Global TTS Engine State ---
+tts_model = None
+model_lock = threading.Lock()
 
-# --- Initialization ---
-voice = None
-logging.info("Loading Piper TTS voice model...")
-try:
-    voice = PiperVoice.load(VOICE_MODEL_PATH)
-    logging.info(f"Piper TTS model '{VOICE_MODEL_PATH}' loaded successfully.")
-except Exception as e:
-    logging.error(f"Failed to load Piper TTS model from '{VOICE_MODEL_PATH}'. Error: {e}")
+# Use the GPU if available, otherwise fall back to CPU
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def get_tts_model():
+    """Lazily loads the Coqui TTS model on first use."""
+    global tts_model
+    with model_lock:
+        if tts_model is None:
+            logging.info("Loading Coqui TTS model on demand...")
+            try:
+                # This model will be downloaded automatically on the first run
+                model_name = "tts_models/en/ljspeech/vits"
+                tts_model = TTS(model_name).to(device)
+                logging.info(f"Coqui TTS model '{model_name}' loaded successfully on {device}.")
+            except Exception as e:
+                logging.error(f"Failed to initialize Coqui TTS model: {e}")
+    return tts_model
 
 def speak(text_to_speak):
     """
-    Synthesizes and speaks the given text using Piper TTS in a separate thread.
+    Adds text to a queue to be synthesized and spoken by the dedicated TTS thread.
     """
-    if not voice:
-        logging.error("TTS voice not loaded, cannot speak.")
-        return
     if not text_to_speak.strip():
         return
-        
     thread = threading.Thread(target=_speak_thread, args=(text_to_speak,))
     thread.daemon = True
     thread.start()
 
 def _speak_thread(text):
-    """Worker function to synthesize and play audio."""
-    try:
-        audio_stream = voice.synthesize_stream_raw(text)
-        samplerate = voice.config.sample_rate
-        audio_data = b''.join(audio_stream)
-            
-        if audio_data:
-             audio_np = np.frombuffer(audio_data, dtype=np.int16)
-             sd.play(audio_np, samplerate=samplerate)
-             
-             # This line is critical. It blocks this background thread
-             # until the sound is done, but does NOT block the main UI.
-             sd.wait()
+    """Worker function to synthesize and play audio using Coqui TTS."""
+    model = get_tts_model()
+    if not model:
+        logging.error("TTS model not available, cannot speak.")
+        return
 
+    try:
+        logging.info(f"Coqui TTS synthesizing: '{text[:50]}...'")
+        
+        # --- CHANGE: Simplified the TTS call ---
+        # This specific model does not require speaker or language parameters.
+        # Providing them was causing the 'NoneType' error.
+        wav = model.tts(text=text)
+        
+        # Play the audio
+        sd.play(np.array(wav), samplerate=model.synthesizer.output_sample_rate)
+        sd.wait()
+        logging.info("Finished TTS playback.")
     except Exception as e:
-        logging.error(f"Error during TTS synthesis or playback: {e}")
+        logging.error(f"Error during Coqui TTS synthesis or playback: {e}")

@@ -11,74 +11,96 @@ from PyQt5.QtCore import QTimer
 from logging_config import setup_logging
 from voice.text_to_speech import speak
 from voice.speech_to_text import listen_for_command
-# --- CHANGE: Memory imports are no longer needed in the main app ---
-# from memory.long_term import store_memory
+from memory.long_term import store_memory
+from tools.web_search import perform_web_search
 
 # --- Top-level function for the worker process ---
+# This must be a top-level function to be used with multiprocessing.
 def worker_process(queue, user_text, conversation_history, model_name):
     """
-    This function runs in a separate process. The memory feature is disabled.
+    This function runs in a separate process and handles all the heavy lifting:
+    deciding to search the web, retrieving memories, and calling the LLM.
     """
+    # Imports must be inside the worker for the 'spawn' method
     import requests
     import json
     import logging
+    from memory.long_term import retrieve_relevant_memories
 
     try:
-        logging.info(f"Worker process started for: '{user_text}'")
+        # --- Agentic Step 1: Decide if a web search is needed ---
+        search_decision_prompt = f"""You must decide if a web search is necessary to answer the user's query. Answer only with the single word "yes" or "no".
+        The user's query is: "{user_text}"
         
-        # --- CHANGE: Memory retrieval is disabled for this test ---
-        # relevant_memories = retrieve_relevant_memories(user_text)
-        relevant_memories = []
-        
-        current_context = conversation_history.copy()
-        if relevant_memories: # This block will not run
-            memory_context = "Remember these potentially relevant facts from past conversations: " + "; ".join(relevant_memories)
-            current_context.insert(-1, {"role": "system", "content": memory_context})
-
-        logging.info("Worker: Calling Ollama API...")
+        Is a real-time web search required to answer this? For example, for current events, live data (like weather or stock prices), or information about recent topics.
+        """
+        search_decision_messages = [{'role': 'user', 'content': search_decision_prompt}]
         url = "http://127.0.0.1:11434/api/chat"
-        payload = { "model": model_name, "messages": current_context, "stream": False }
         headers = {"Content-Type": "application/json"}
-        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
-        response.raise_for_status()
-        response_data = response.json()
-        ai_text = response_data.get('message', {}).get('content', '')
+        search_payload = {"model": model_name, "messages": search_decision_messages, "stream": False, "options": {"temperature": 0.0}}
         
-        # --- CHANGE: Storing memory is disabled for this test ---
-        # last_user_message = conversation_history[-1]['content']
-        # store_memory(last_user_message)
+        search_decision_response = requests.post(url, headers=headers, data=json.dumps(search_payload), timeout=20)
+        search_decision_response.raise_for_status()
+        search_answer = search_decision_response.json().get('message', {}).get('content', 'no').lower().strip()
 
+        context_from_tool = ""
+        if "yes" in search_answer:
+            logging.info("Agent decided a web search is needed.")
+            context_from_tool = perform_web_search(user_text)
+        else:
+            logging.info("Agent decided to use internal memory.")
+            relevant_memories = retrieve_relevant_memories(user_text)
+            if relevant_memories:
+                context_from_tool = "Use the following retrieved context to answer the user's question: " + "; ".join(relevant_memories)
+
+        # --- Agentic Step 2: Generate final response ---
+        final_context = conversation_history.copy()
+        if context_from_tool:
+            final_context.insert(-1, {"role": "system", "content": context_from_tool})
+        
+        logging.info(f"Final context being sent to Ollama: {final_context}")
+        final_payload = { "model": model_name, "messages": final_context, "stream": False }
+        final_response = requests.post(url, headers=headers, data=json.dumps(final_payload), timeout=60)
+        final_response.raise_for_status()
+        ai_text = final_response.json().get('message', {}).get('content', '')
+        
+        # Store memory of the user's prompt
+        store_memory(user_text)
+        
         queue.put(ai_text)
 
     except Exception as e:
-        logging.error(f"Error in worker process: {e}")
-        error_message = f"Error in background process: {e}"
-        queue.put(error_message)
+        logging.error(f"Error in worker process: {e}", exc_info=True)
+        queue.put(f"Error in background process: {e}")
 
 
 # --- Main Application Window ---
 class RatatoskrApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Ratatoskr AI Assistant (Multithreaded Test)")
+        self.setWindowTitle("Ratatoskr AI Assistant")
+        self.setGeometry(100, 100, 800, 600)
+
         try:
             from config import MODEL_NAME
             self.model_name = MODEL_NAME
         except (ImportError, AttributeError):
             self.model_name = "llama3.1:8b"
+
         self.conversation_history = []
         self.current_mode = "hybrid"
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
+        
         self.mp_queue = None
         self.response_timer = QTimer(self)
         self.response_timer.timeout.connect(self.check_for_response)
+        
         self.setup_ui()
         logging.info("RatatoskrApp initialized.")
 
     def setup_ui(self):
-        # UI setup remains the same...
         mode_group = QGroupBox("Interaction Mode")
         mode_layout = QHBoxLayout()
         self.radio_hybrid = QRadioButton("Hybrid (Text & Voice)")
@@ -140,15 +162,19 @@ class RatatoskrApp(QMainWindow):
         if text:
             self.input_box.setText(text)
             self.send_message()
+        elif self.current_mode == 'voice_only':
+            self.start_listening()
 
     def send_message(self):
         user_text = self.input_box.text().strip()
         if not user_text:
             return
+        
         self.set_ui_busy(True, thinking=True)
         self.conversation_view.append(f"<b>You:</b> {user_text}")
         self.conversation_history.append({"role": "user", "content": user_text})
         self.input_box.clear()
+
         from multiprocessing import Process, Queue
         self.mp_queue = Queue()
         process_args = (self.mp_queue, user_text, self.conversation_history, self.model_name)
@@ -165,14 +191,18 @@ class RatatoskrApp(QMainWindow):
 
     def handle_ai_response(self, ai_text):
         self.set_ui_busy(False, thinking=False)
+        
         if ai_text.startswith("Error:"):
              self.handle_task_error(ai_text)
              return
+
         if self.current_mode != "voice_only":
             self.conversation_view.append(f"<b>Ratatoskr:</b> {ai_text}\n")
         self.conversation_history.append({"role": "assistant", "content": ai_text})
         if self.current_mode != "text_only":
             speak(ai_text)
+        if self.current_mode == "voice_only":
+            QTimer.singleShot(500, self.start_listening)
         
     def handle_task_error(self, error_message):
         self.set_ui_busy(False, thinking=False, listening=False)
@@ -184,6 +214,7 @@ class RatatoskrApp(QMainWindow):
             self.input_box.setEnabled(False)
             self.send_button.setEnabled(False)
             self.listen_button.setEnabled(False)
+
         cursor = self.conversation_view.textCursor()
         cursor.movePosition(cursor.End)
         cursor.select(cursor.BlockUnderCursor)
@@ -200,10 +231,11 @@ class RatatoskrApp(QMainWindow):
             self.input_box.setFocus()
 
 if __name__ == "__main__":
-    from multiprocessing import freeze_support, set_start_method
-    set_start_method('spawn', force=True)
-    freeze_support()
+    # Set the start method to 'spawn' to avoid CUDA/forking conflicts
+    multiprocessing.set_start_method('spawn', force=True)
+    
     setup_logging()
+    
     app = QApplication(sys.argv)
     window = RatatoskrApp()
     window.show()

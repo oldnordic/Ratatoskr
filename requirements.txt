@@ -1,18 +1,15 @@
 PyQt5
 ollama
-# For local Speech-to-Text
-# For playing audio from TTS
-sounddevice
-# For local, high-quality Text-to-Speech
-# Install directly from the 'src/python' subdirectory in the GitHub repo
-# For Long-Term Memory (using PyTorch-based models)
-chromadb
-sentence-transformers
-pyttsx3
-# For Speech-to-Text
+requests
 SpeechRecognition
-pyAudio
-
-# For local, high-quality Text-to-Speech
-piper-phonemize-fix
-onnxruntime-gpu
+openai-whisper
+beautifulsoup4
+duckduckgo-search
+faiss-cpu
+numpy
+sentence-transformers
+# For High-Quality TTS and other AI Models
+torch
+torchaudio
+TTS
+sounddevice
