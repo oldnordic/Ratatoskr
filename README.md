@@ -48,7 +48,7 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
 1.  **Clone the Repository:**
     ```bash
     # Replace with your actual repository URL
-    git clone [https://github.com/YOUR_USERNAME/ratatoskr.git](https://github.com/YOUR_USERNAME/ratatoskr.git)
+    git clone [https://github.com/oldnordic/ratatoskr.git](https://github.com/oldnordic/ratatoskr.git)
     cd ratatoskr
     ```
 
