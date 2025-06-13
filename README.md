@@ -21,6 +21,7 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
 ### Prerequisites
 -   Python 3.10+
 -   `git`
+-    On Windows: 1. Go to the official Python website: https://www.python.org/downloads/windows/ 2. Download the latest Python 3.10.x installer (e.g., "Windows installer (64-bit)"). 3. Run the installer. Important: On the first screen, make sure to check the box that says "Add Python.exe to PATH" before clicking "Install Now" or "Customize installation." This will allow you to run Python commands from any directory in your Command Prompt or PowerShell.
 -   **Ollama:** Must be installed and running on your local machine.
 -   **System Dependencies:**
     -   `ffmpeg` (required by Whisper)
@@ -32,6 +33,15 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
 
     # On Arch Linux / CachyOS:
     sudo pacman -S ffmpeg portaudio
+
+    # On Windows (via Chocolatey - Recommended for ease of use):
+    # Install Chocolatey from [https://chocolatey.org/install](https://chocolatey.org/install)
+    choco install ffmpeg portaudio
+
+    # On Windows (Manual Installation):
+    # - Download ffmpeg from [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html) and add it to your system PATH.
+    # - Download PortAudio from [http://www.portaudio.com/download.html](http://www.portaudio.com/download.html) and follow its build instructions.
+    #   Ensure the compiled libraries (e.g., portaudio_x64.dll) are in your system PATH or Python's environment.
     ```
 
 ### Installation Steps
@@ -39,20 +49,45 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
 1.  **Clone the Repository:**
     ```bash
     # Replace with your actual repository URL
-    git clone [https://github.com/YOUR_USERNAME/ratatoskr.git](https://github.com/YOUR_USERNAME/ratatoskr.git)
+    git clone [https://github.com/oldnordic/ratatoskr.git](https://github.com/oldnordic/ratatoskr.git)
     cd ratatoskr
     ```
 
 2.  **Create and Activate a Virtual Environment:**
     ```bash
+    # On Linux/macOS:
     python3 -m venv venv
     source venv/bin/activate
+
+    # On Windows (Command Prompt):
+    python -m venv venv
+    venv\Scripts\activate
+
+    # On Windows (PowerShell):
+    python -m venv venv
+    .\venv\Scripts\Activate.ps1
     ```
 
 3.  **Install Python Dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
+    Note on GPU Acceleration (PyTorch):
+    The requirements.txt file installs the CPU version of PyTorch by default. For GPU acceleration (highly recommended for performance), you will need to install the specific PyTorch package for your graphics card (AMD or Nvidia) and your ROCm/CUDA version before running        pip install -r requirements.txt.
+    Visit the official PyTorch installation page: https://pytorch.org/get-started/locally/
+    Select your operating system, package manager (pip), CUDA/ROCm version (if applicable), and PyTorch version.
+    Copy the generated pip install command (which often includes specific --index-url flags) and run it in your active virtual environment.
+    After successfully installing the GPU-enabled PyTorch, you can then run pip install -r requirements.txt to install the remaining dependencies.
+
+    Download TTS Voice Model:
+        Go to the Piper voice samples page.
+        Find a voice you like (e.g., en_US-lessac-medium).
+        Create a folder named tts_models in the project root.
+        Download both the .onnx and .onnx.json files for your chosen voice and place them in the tts_models folder.
+
+Running the Application
+
+With your virtual environment active and Ollama running, start the assistant:
 
 4.  **Download TTS Voice Model:**
     -   Go to the [Piper voice samples page](https://rhasspy.github.io/piper-samples/).
