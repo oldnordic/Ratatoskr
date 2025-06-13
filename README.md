@@ -21,6 +21,7 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
 ### Prerequisites
 -   Python 3.10+
 -   `git`
+On Windows: 1. Go to the official Python website: https://www.python.org/downloads/windows/ 2. Download the latest Python 3.10.x installer (e.g., "Windows installer (64-bit)"). 3. Run the installer. Important: On the first screen, make sure to check the box that says "Add Python.exe to PATH" before clicking "Install Now" or "Customize installation." This will allow you to run Python commands from any directory in your Command Prompt or PowerShell.
 -   **Ollama:** Must be installed and running on your local machine.
 -   **System Dependencies:**
     -   `ffmpeg` (required by Whisper)
