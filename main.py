@@ -12,101 +12,109 @@ from PyQt6.QtCore import QTimer
 from logging_config import setup_logging
 from voice.text_to_speech import speak
 from voice.speech_to_text import listen_for_command
-from memory.long_term import store_memory
+from memory.long_term import add_memory, retrieve_relevant_memories
 from tools.web_search import perform_web_search
 
+# --- LangChain Imports ---
+from langchain.agents import AgentExecutor, create_react_agent
+from langchain_ollama import ChatOllama # <-- CORRECTED IMPORT
+from langchain_core.prompts import PromptTemplate
+from langchain.tools import Tool
+
 # --- Top-level function for the worker process ---
-def worker_process(queue, user_text, conversation_history, model_name):
+def worker_process(queue, user_input, conversation_history, model_name):
     """
-    This function runs in a separate process and handles all the heavy lifting.
+    This worker process uses a LangChain Agent to generate responses.
     """
-    import requests
-    import json
     import logging
-    from memory.long_term import retrieve_relevant_memories
-
+    
     try:
-        # Agentic Step 1: Decide if a web search is needed
-        search_decision_prompt = f"""You must decide if a web search is necessary to answer the user's query. Answer only with the single word "yes" or "no".
-        The user's query is: "{user_text}"
-        
-        Is a real-time web search required to answer this? For example, for current events, live data (like weather or stock prices), or information about recent topics.
-        """
-        search_decision_messages = [{'role': 'user', 'content': search_decision_prompt}]
-        url = "http://127.0.0.1:11434/api/chat"
-        headers = {"Content-Type": "application/json"}
-        search_payload = {"model": model_name, "messages": search_decision_messages, "stream": False, "options": {"temperature": 0.0}}
-        
-        search_decision_response = requests.post(url, headers=headers, data=json.dumps(search_payload), timeout=20)
-        search_decision_response.raise_for_status()
-        search_answer = search_decision_response.json().get('message', {}).get('content', 'no').lower().strip()
+        logging.info("LangChain worker process started.")
+        llm = ChatOllama(model=model_name, temperature=0.7)
 
-        context_from_tool = ""
-        if "yes" in search_answer:
-            logging.info("Agent decided a web search is needed.")
-            context_from_tool = perform_web_search(user_text)
-        else:
-            logging.info("Agent decided to use internal memory.")
-            relevant_memories = retrieve_relevant_memories(user_text)
-            if relevant_memories:
-                context_from_tool = "Use the following retrieved context to answer the user's question: " + "; ".join(relevant_memories)
+        tools = [
+            Tool(name="Web Search", func=perform_web_search, description="Use for real-time information like news, weather, or current events."),
+            Tool(name="Long-Term Memory Search", func=retrieve_relevant_memories, description="Use to retrieve specific facts from past conversations, like names or user preferences."),
+            Tool(name="Save to Memory", func=add_memory, description="Use to save a specific fact from the user's input for future reference.")
+        ]
 
-        # Agentic Step 2: Generate final response
-        final_context = conversation_history.copy()
-        if context_from_tool:
-            final_context.insert(-1, {"role": "system", "content": context_from_tool})
+        # --- FIX: The corrected prompt with the required {tools} and {tool_names} variables ---
+        prompt_template = """
+        You are a helpful AI assistant named Ratatoskr. Answer the user's questions as best as you can.
+        You have access to the following tools:
+        {tools}
+
+        To use a tool, please use the following format:
+
+        Thought: Do I need to use a tool? Yes
+        Action: the action to take, should be one of [{tool_names}]
+        Action Input: the input to the action
+        Observation: the result of the action
+
+        When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
+
+        Thought: Do I need to use a tool? No
+        Final Answer: [your response here]
+
+        Begin!
+
+        Previous Chat History:
+        {chat_history}
+
+        New Input: {input}
+        Thought:{agent_scratchpad}"""
+        prompt = PromptTemplate.from_template(prompt_template)
         
-        logging.info(f"Final context being sent to Ollama: {final_context}")
-        final_payload = { "model": model_name, "messages": final_context, "stream": False }
-        final_response = requests.post(url, headers=headers, data=json.dumps(final_payload), timeout=60)
-        final_response.raise_for_status()
-        ai_text = final_response.json().get('message', {}).get('content', '')
+        agent = create_react_agent(llm, tools, prompt)
+        agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True, max_iterations=6)
+
+        chat_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history])
         
-        store_memory(user_text)
+        response = agent_executor.invoke({
+            "input": user_input,
+            "chat_history": chat_history,
+        })
+        
+        ai_text = response.get("output", "The agent could not determine a response.")
         
         queue.put(ai_text)
-
     except Exception as e:
-        logging.error(f"Error in worker process: {e}", exc_info=True)
-        queue.put(f"Error in background process: {e}")
-
+        logging.error(f"Error in LangChain worker process: {e}", exc_info=True)
+        queue.put(f"Error in LangChain process: {e}")
 
 # --- Main Application Window ---
 class RatatoskrApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Ratatoskr AI Assistant (PyQt6)")
+        self.setWindowTitle("Ratatoskr AI Assistant (LangChain)")
         self.setGeometry(100, 100, 800, 600)
-
         try:
             from config import MODEL_NAME
             self.model_name = MODEL_NAME
         except (ImportError, AttributeError):
             self.model_name = "llama3.1:8b"
-
         self.conversation_history = []
         self.current_mode = "hybrid"
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
-        
         self.mp_queue = None
         self.response_timer = QTimer(self)
         self.response_timer.timeout.connect(self.check_for_response)
-        
         self.setup_ui()
-        logging.info("RatatoskrApp initialized with PyQt6.")
+        logging.info("RatatoskrApp initialized with LangChain.")
 
     def setup_ui(self):
+        # UI setup remains the same
         mode_group = QGroupBox("Interaction Mode")
         mode_layout = QHBoxLayout()
         self.radio_hybrid = QRadioButton("Hybrid (Text & Voice)")
         self.radio_hybrid.setChecked(True)
-        self.radio_hybrid.toggled.connect(lambda checked: self.set_interaction_mode("hybrid") if checked else None)
+        self.radio_hybrid.toggled.connect(lambda: self.set_interaction_mode("hybrid"))
         self.radio_voice = QRadioButton("Voice Only")
-        self.radio_voice.toggled.connect(lambda checked: self.set_interaction_mode("voice_only") if checked else None)
+        self.radio_voice.toggled.connect(lambda: self.set_interaction_mode("voice_only"))
         self.radio_text = QRadioButton("Text Only")
-        self.radio_text.toggled.connect(lambda checked: self.set_interaction_mode("text_only") if checked else None)
+        self.radio_text.toggled.connect(lambda: self.set_interaction_mode("text_only"))
         mode_layout.addWidget(self.radio_hybrid)
         mode_layout.addWidget(self.radio_voice)
         mode_layout.addWidget(self.radio_text)
@@ -132,8 +140,10 @@ class RatatoskrApp(QMainWindow):
         self.main_layout.addLayout(input_layout)
         
     def set_interaction_mode(self, mode):
-        self.current_mode = mode
-        logging.info(f"Switched to {mode} mode.")
+        if self.radio_hybrid.isChecked(): self.current_mode = "hybrid"
+        elif self.radio_voice.isChecked(): self.current_mode = "voice_only"
+        else: self.current_mode = "text_only"
+        logging.info(f"Switched to {self.current_mode} mode.")
         self.update_ui_for_mode()
 
     def update_ui_for_mode(self):
@@ -164,9 +174,7 @@ class RatatoskrApp(QMainWindow):
 
     def send_message(self):
         user_text = self.input_box.text().strip()
-        if not user_text:
-            return
-        
+        if not user_text: return
         self.set_ui_busy(True, thinking=True)
         self.conversation_view.append(f"<b>You:</b> {user_text}")
         self.conversation_history.append({"role": "user", "content": user_text})
@@ -188,11 +196,9 @@ class RatatoskrApp(QMainWindow):
 
     def handle_ai_response(self, ai_text):
         self.set_ui_busy(False, thinking=False)
-        
         if ai_text.startswith("Error:"):
              self.handle_task_error(ai_text)
              return
-
         if self.current_mode != "voice_only":
             self.conversation_view.append(f"<b>Ratatoskr:</b> {ai_text}\n")
         self.conversation_history.append({"role": "assistant", "content": ai_text})
@@ -211,34 +217,23 @@ class RatatoskrApp(QMainWindow):
             self.input_box.setEnabled(False)
             self.send_button.setEnabled(False)
             self.listen_button.setEnabled(False)
-
         cursor = self.conversation_view.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
-        
-        # Use the correct PyQt6 enum 'SelectionType'
         cursor.select(QTextCursor.SelectionType.BlockUnderCursor)
         selected_text = cursor.selectedText().strip()
-        
-        if selected_text.endswith("Thinking...") or selected_text.endswith("Listening..."):
+        if selected_text.endswith("Thinking..."):
             cursor.removeSelectedText()
-            
         if is_busy:
-            if thinking:
-                self.conversation_view.append("<b>Ratatoskr:</b> Thinking...")
-            elif listening:
-                self.listen_button.setText("Listening...")
+            if thinking: self.conversation_view.append("<b>Ratatoskr:</b> Thinking...")
+            elif listening: self.listen_button.setText("Listening...")
         else:
             self.listen_button.setText("Listen 🎙️")
             self.input_box.setFocus()
 
 if __name__ == "__main__":
-    # Set the start method to 'spawn' to avoid CUDA/forking conflicts
     multiprocessing.set_start_method('spawn', force=True)
-    
     setup_logging()
-    
     app = QApplication(sys.argv)
     window = RatatoskrApp()
     window.show()
-    # Use the correct PyQt6 method name 'exec'
     sys.exit(app.exec())
