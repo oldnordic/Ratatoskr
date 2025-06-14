@@ -1,60 +1,44 @@
+# voice/text_to_speech.py
+
 import logging
-import torch
-from TTS.api import TTS
-import sounddevice as sd
-import numpy as np
 import threading
 
-# --- Global TTS Engine State ---
-tts_model = None
-model_lock = threading.Lock()
+import torch
+import numpy as np
+import sounddevice as sd
+from TTS.api import TTS
 
-# Use the GPU if available, otherwise fall back to CPU
-device = "cuda" if torch.cuda.is_available() else "cpu"
+# Detect device once
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-def get_tts_model():
-    """Lazily loads the Coqui TTS model on first use."""
-    global tts_model
-    with model_lock:
-        if tts_model is None:
-            logging.info("Loading Coqui TTS model on demand...")
-            try:
-                # This model will be downloaded automatically on the first run
-                model_name = "tts_models/en/ljspeech/vits"
-                tts_model = TTS(model_name).to(device)
-                logging.info(f"Coqui TTS model '{model_name}' loaded successfully on {device}.")
-            except Exception as e:
-                logging.error(f"Failed to initialize Coqui TTS model: {e}")
-    return tts_model
+# Load model once and move it to the chosen device
+tts = TTS(
+    model_name="tts_models/en/ljspeech/tacotron2-DDC",
+    progress_bar=False
+)
+tts.to(DEVICE)  # replace gpu=... usage with explicit .to(device) per deprecation warning
 
-def speak(text_to_speak):
+def speak(text: str):
     """
-    Adds text to a queue to be synthesized and spoken by the dedicated TTS thread.
+    Synthesize `text` to speech and play it in a background thread.
     """
-    if not text_to_speak.strip():
-        return
-    thread = threading.Thread(target=_speak_thread, args=(text_to_speak,))
-    thread.daemon = True
-    thread.start()
-
-def _speak_thread(text):
-    """Worker function to synthesize and play audio using Coqui TTS."""
-    model = get_tts_model()
-    if not model:
-        logging.error("TTS model not available, cannot speak.")
-        return
-
+    logging.info(f"Coqui TTS synthesizing: '{text}'")
     try:
-        logging.info(f"Coqui TTS synthesizing: '{text[:50]}...'")
-        
-        # --- CHANGE: Simplified the TTS call ---
-        # This specific model does not require speaker or language parameters.
-        # Providing them was causing the 'NoneType' error.
-        wav = model.tts(text=text)
-        
-        # Play the audio
-        sd.play(np.array(wav), samplerate=model.synthesizer.output_sample_rate)
-        sd.wait()
-        logging.info("Finished TTS playback.")
+        # Generate waveform on the selected device
+        wav: np.ndarray = tts.tts(text)
+        # Get the sample rate
+        sample_rate: int = tts.synthesizer.output_sample_rate
+
+        # Play back in a separate thread to avoid blocking
+        def _playback(data: np.ndarray, sr: int):
+            sd.play(data, samplerate=sr)
+            sd.wait()
+
+        threading.Thread(
+            target=_playback,
+            args=(wav, sample_rate),
+            daemon=True
+        ).start()
+
     except Exception as e:
-        logging.error(f"Error during Coqui TTS synthesis or playback: {e}")
+        logging.error(f"TTS synthesis failed: {e}", exc_info=True)

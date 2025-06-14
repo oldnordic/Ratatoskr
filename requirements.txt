@@ -1,5 +1,6 @@
 # For the User Interface
 PyQt6
+PyQt6-WebEngine
 # For the Ollama LLM
 ollama
 # For making stable HTTP requests (used by LangChain)
