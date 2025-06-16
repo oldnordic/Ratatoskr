@@ -1,3 +1,5 @@
+"""Unit tests for the text-to-speech module."""
+
 import sys
 import types
 

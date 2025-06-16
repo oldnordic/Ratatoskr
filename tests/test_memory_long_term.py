@@ -1,3 +1,5 @@
+"""Unit tests for the long-term memory subsystem."""
+
 import sys
 import types
 

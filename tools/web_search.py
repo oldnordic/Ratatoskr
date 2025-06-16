@@ -1,4 +1,6 @@
 import logging
+"""Utility functions for performing simple DuckDuckGo powered web searches."""
+
 from typing import List
 
 import requests
@@ -10,7 +12,15 @@ def _extract_text_from_html(html_content: str) -> str:
     """Use BeautifulSoup to extract clean text from HTML content."""
     try:
         soup = BeautifulSoup(html_content, "html.parser")
-        for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
+        # Remove common non-content elements that would clutter the result.
+        for element in soup([
+            "script",
+            "style",
+            "nav",
+            "footer",
+            "header",
+            "aside",
+        ]):
             element.decompose()
         text = soup.get_text()
         lines = (line.strip() for line in text.splitlines())
@@ -25,12 +35,17 @@ def perform_web_search(query: str) -> str:
     """Perform a web search and return cleaned result text."""
     logging.info(f"Performing web search for: '{query}'")
 
+    # Currently we simply use the given query, but hooks could be added here to
+    # expand or modify it (e.g. add site restrictions).
     refined_query = query
     logging.info(f"Refined search query to: '{refined_query}'")
 
     try:
         with DDGS() as ddgs:
-            results: List[dict] = [r for r in ddgs.text(refined_query, max_results=3, timelimit="d")]
+            # Limit the results to keep bandwidth usage low.
+            results: List[dict] = [
+                r for r in ddgs.text(refined_query, max_results=3, timelimit="d")
+            ]
             if not results:
                 logging.warning("Web search returned no recent results.")
                 return "I couldn't find any recent results for your query."
@@ -42,7 +57,11 @@ def perform_web_search(query: str) -> str:
                     continue
                 logging.info(f"Fetching content from URL: {url}")
                 try:
-                    response = requests.get(url, headers={"User-Agent": "RatatoskrBot/1.0"}, timeout=8)
+                    response = requests.get(
+                        url,
+                        headers={"User-Agent": "RatatoskrBot/1.0"},
+                        timeout=8,
+                    )
                     response.raise_for_status()
                     page_text = _extract_text_from_html(response.text)
                     if page_text:
@@ -51,6 +70,7 @@ def perform_web_search(query: str) -> str:
                 except requests.RequestException as e:
                     logging.warning(f"Could not fetch or read URL {url}: {e}")
 
+            # Combine snippets from each page into one response.
             if not all_content:
                 return "Could not retrieve readable content for your query."
             return "\n\n".join(all_content)

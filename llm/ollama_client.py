@@ -1,8 +1,9 @@
+"""Helpers for interacting with a locally served LLM via Ollama."""
+
 import logging
 
-# This module currently provides a placeholder API for obtaining an LLM client.
-# The main logic lives in ``main.py`` where the agent is executed in a separate
-# worker thread.
+# This module only exposes a minimal placeholder as the main program currently
+# handles all communication with the LLM in ``main.py``.
 
 
 def get_llm_client() -> None:

@@ -1,4 +1,4 @@
-# main.py
+"""Graphical chat application driving a local LLM via LangChain."""
 import sys
 import logging
 import threading
@@ -29,12 +29,11 @@ from langchain.tools import Tool
 
 
 def browse_search(query: str) -> str:
-    """
-    Perform a DuckDuckGo HTML search via HTTP and return the first result page's text.
-    """
+    """Return text content from the first DuckDuckGo search result."""
     try:
         search_url = "https://duckduckgo.com/html/"
         params = {"q": query}
+        # First request obtains the search results page.
         r = httpx.get(search_url, params=params, timeout=10)
         if r.status_code != 200:
             return f"❌ Search failed with status {r.status_code}."
@@ -43,7 +42,7 @@ def browse_search(query: str) -> str:
         if not link_tag or not link_tag.get("href"):
             return "❌ No results found."
         link = link_tag["href"]
-        # fetch the actual page
+        # Fetch the actual result page.
         r2 = httpx.get(link, timeout=10)
         if r2.status_code != 200:
             return f"❌ Failed to load result page ({r2.status_code})."
@@ -56,8 +55,10 @@ def browse_search(query: str) -> str:
 
 
 def worker_thread(queue: Queue, user_input: str, conversation_history: list, model_name: str):
+    """Background thread that runs the LangChain agent."""
     logging.info("LangChain worker thread started.")
     try:
+        # Set up the language model and toolset used by the ReAct agent.
         llm = ChatOllama(model=model_name, temperature=0.7)
         tools = [
             Tool(
@@ -81,6 +82,7 @@ def worker_thread(queue: Queue, user_input: str, conversation_history: list, mod
                 description="Save a fact for future reference."
             )
         ]
+        # Template that guides the agent through the ReAct reasoning loop.
         prompt_template = '''
 You are a helpful AI assistant named Ratatoskr. Answer the user's questions as best as you can.
 You have access to the following tools:
@@ -108,6 +110,7 @@ Thought:{agent_scratchpad}
 '''
         prompt = PromptTemplate.from_template(prompt_template)
         agent = create_react_agent(llm, tools, prompt)
+        # ``AgentExecutor`` runs the reasoning chain until ``Final Answer``.
         agent_executor = AgentExecutor(
             agent=agent,
             tools=tools,
@@ -127,6 +130,7 @@ Thought:{agent_scratchpad}
 
 class RatatoskrApp(QMainWindow):
     def __init__(self):
+        """Main Qt application window."""
         super().__init__()
         self.setWindowTitle("Ratatoskr AI Assistant (LangChain)")
         self.setGeometry(100, 100, 800, 600)
@@ -146,6 +150,7 @@ class RatatoskrApp(QMainWindow):
         logging.info("RatatoskrApp initialized.")
 
     def setup_ui(self):
+        """Construct all widgets and layout for the main window."""
         mode_group = QGroupBox("Interaction Mode")
         mode_layout = QHBoxLayout()
         self.radio_hybrid = QRadioButton("Hybrid (Text & Voice)")
@@ -189,14 +194,17 @@ class RatatoskrApp(QMainWindow):
         self.listen_button.setEnabled(not is_text)
 
     def start_listening(self):
+        """Begin capturing audio from the microphone."""
         threading.Thread(target=self.listen_and_process, daemon=True).start()
         self.set_ui_busy(True, listening=True)
 
     def listen_and_process(self):
+        """Capture speech and schedule processing of the result."""
         text = listen_for_command()
         QTimer.singleShot(0, lambda: self.on_speech_recognized(text))
 
     def on_speech_recognized(self, text: str):
+        """Handle transcribed speech from the microphone."""
         self.set_ui_busy(False, listening=False)
         if text:
             self.input_box.setText(text)
@@ -205,6 +213,7 @@ class RatatoskrApp(QMainWindow):
             self.start_listening()
 
     def send_message(self):
+        """Send the user's text to the agent for processing."""
         user_text = self.input_box.text().strip()
         if not user_text:
             return
@@ -219,12 +228,14 @@ class RatatoskrApp(QMainWindow):
         self.response_timer.start(100)
 
     def check_for_response(self):
+        """Poll the worker thread for new AI output."""
         if self.mp_queue and not self.mp_queue.empty():
             self.response_timer.stop()
             ai_text = self.mp_queue.get()
             self.handle_ai_response(ai_text)
 
     def handle_ai_response(self, ai_text: str):
+        """Display AI output and optionally speak it."""
         self.set_ui_busy(False, thinking=False)
         if ai_text.startswith("Error"):
             self.handle_task_error(ai_text)
@@ -238,10 +249,12 @@ class RatatoskrApp(QMainWindow):
             QTimer.singleShot(500, self.start_listening)
 
     def handle_task_error(self, msg: str):
+        """Display an error message in the conversation view."""
         self.set_ui_busy(False)
         self.conversation_view.append(f"<b style='color:red;'>{msg}</b>\n")
 
     def set_ui_busy(self, busy: bool, thinking: bool=False, listening: bool=False):
+        """Enable/disable controls while background work is running."""
         self.update_ui_for_mode()
         self.input_box.setEnabled(not busy and self.current_mode != "voice_only")
         self.send_button.setEnabled(not busy and self.current_mode != "voice_only")

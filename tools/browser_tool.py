@@ -9,8 +9,11 @@ def browse_search(query: str, app_ref) -> str:
     html_holder = {"content": None}
 
     def on_html(html: str) -> None:
+        """Callback to capture page HTML once loaded."""
         html_holder["content"] = html
 
+    # Kick off the search request and wait for the HTML to arrive via the
+    # ``BrowserBridge``.
     app_ref.browser_bridge.page_loaded.connect(on_html)
     app_ref.browser_bridge.navigate(url)
 
