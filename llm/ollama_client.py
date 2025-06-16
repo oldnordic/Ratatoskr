@@ -1,19 +1,11 @@
 import logging
 
-# This file is simplified because the main logic for calling Ollama
-# has been moved into a top-level worker function in `main.py`
-# to support the `multiprocessing` solution, which was necessary
-# to resolve the conflict with the PyQt event loop.
+# This module currently provides a placeholder API for obtaining an LLM client.
+# The main logic lives in ``main.py`` where the agent is executed in a separate
+# worker thread.
 
-def get_llm_client():
-    """
-    This function can be expanded in the future to handle more complex
-    client configurations if needed. For now, it serves as a placeholder
-    as the client is created directly in the worker process for stability.
-    """
+
+def get_llm_client() -> None:
+    """Return the LLM client instance if one is configured."""
     logging.info("get_llm_client called (placeholder).")
     return None
-
-# The original get_ai_response function is no longer needed here,
-# as its logic is now inside the `worker_process` function in main.py to
-# ensure it runs in a separate, isolated process.

@@ -1,7 +1,5 @@
 import logging
-import faiss
 import os
-import json
 import threading
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -32,7 +30,11 @@ def _initialize_vector_store():
         try:
             embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
             if os.path.exists(INDEX_FILE):
-                vectorstore = FAISS.load_local(MEMORY_DIR, embeddings, allow_dangerous_deserialization=True)
+                vectorstore = FAISS.load_local(
+                    MEMORY_DIR,
+                    embeddings,
+                    allow_dangerous_deserialization=True
+                )
             else:
                 vectorstore = FAISS.from_texts(["Initial memory entry."], embeddings)
                 vectorstore.save_local(MEMORY_DIR)
