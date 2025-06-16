@@ -10,6 +10,8 @@ openai-whisper
 SpeechRecognition
 # For audio playback
 sounddevice
+# Coqui text-to-speech
+TTS
 # For web scraping and parsing
 beautifulsoup4
 # For programmatic web search
