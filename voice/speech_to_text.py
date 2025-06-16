@@ -1,17 +1,19 @@
-import speech_recognition as sr
-import whisper
 import logging
 import os
-import wave
 import threading
+import wave
 from tempfile import NamedTemporaryFile
 
-# --- CHANGE: Defer model loading ---
+import speech_recognition as sr
+import whisper
+
+# Defer model loading
 stt_model = None
 model_lock = threading.Lock()
 
+
 def get_stt_model():
-    """Lazily loads the Whisper model on first use."""
+    """Lazily load the Whisper model on first use."""
     global stt_model
     with model_lock:
         if stt_model is None:
@@ -20,11 +22,10 @@ def get_stt_model():
             logging.info("Whisper STT model loaded.")
     return stt_model
 
-def listen_for_command():
-    """
-    Listens for a command from the microphone and returns the transcribed text.
-    """
-    model = get_stt_model() # Load the model on first call
+
+def listen_for_command() -> str:
+    """Listen from the microphone and return the transcribed text."""
+    model = get_stt_model()
     recognizer = sr.Recognizer()
     recognizer.pause_threshold = 1.5
 
@@ -37,7 +38,7 @@ def listen_for_command():
             return ""
 
     temp_audio_file = NamedTemporaryFile(suffix=".wav", delete=False).name
-    with wave.open(temp_audio_file, 'wb') as wf:
+    with wave.open(temp_audio_file, "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(audio_data.sample_width)
         wf.setframerate(audio_data.sample_rate)
@@ -45,7 +46,7 @@ def listen_for_command():
 
     try:
         result = model.transcribe(temp_audio_file, fp16=False)
-        return result.get('text', '')
+        return result.get("text", "")
     except Exception as e:
         logging.error(f"Error during Whisper transcription: {e}")
         return ""

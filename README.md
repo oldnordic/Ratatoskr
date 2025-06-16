@@ -85,15 +85,6 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
         Create a folder named tts_models in the project root.
         Download both the .onnx and .onnx.json files for your chosen voice and place them in the tts_models folder.
 
-Running the Application
-
-With your virtual environment active and Ollama running, start the assistant:
-
-4.  **Download TTS Voice Model:**
-    -   Go to the [Piper voice samples page](https://rhasspy.github.io/piper-samples/).
-    -   Find a voice you like (e.g., `en_US-lessac-medium`).
-    -   Create a folder named `tts_models` in the project root.
-    -   Download both the `.onnx` and `.onnx.json` files for your chosen voice and place them in the `tts_models` folder.
 
 ## Running the Application
 
@@ -101,3 +92,4 @@ With your virtual environment active and Ollama running, start the assistant:
 
 ```bash
 python main.py
+```

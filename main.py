@@ -2,7 +2,6 @@
 import sys
 import logging
 import threading
-import time
 from queue import Queue
 import httpx
 from bs4 import BeautifulSoup
@@ -27,6 +26,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain.tools import Tool
 
 # Browse via HTTP client to avoid GUI threading issues
+
 
 def browse_search(query: str) -> str:
     """
