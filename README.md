@@ -1,6 +1,6 @@
 # Project Ratatoskr: A Local AI Voice Assistant
 
-A modular, local-first AI assistant built in Python. Ratatoskr leverages local large language models (via Ollama), speech-to-text (Whisper), and text-to-speech (Piper) to provide a private and extensible conversational AI experience.
+A modular, local-first AI assistant built in Python. Ratatoskr leverages local large language models (via Ollama), speech-to-text (Whisper), and text-to-speech (Coqui TTS) to provide a private and extensible conversational AI experience.
 
 ## Core Features
 
@@ -9,7 +9,7 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
 -   **Fully Local AI:** All core AI processing happens on your machine.
     -   **LLM Integration:** Connects to any model served by **Ollama**.
     -   **Speech-to-Text:** Uses OpenAI's **Whisper** for high-quality, offline transcription.
-    -   **Text-to-Speech:** Uses **Piper TTS** for a natural, high-quality local voice.
+    -   **Text-to-Speech:** Uses **Coqui TTS** for a natural, high-quality local voice.
 -   **Long-Term Memory:** Implements a "learning" capability by using Sentence Transformers (PyTorch) to create embeddings for conversation snippets, storing and retrieving them from a **ChromaDB** vector database.
 -   **Multiple Interaction Modes:** Easily switch between three modes via the UI:
     -   **Hybrid Mode:** Full text and voice input/output.
@@ -79,11 +79,13 @@ A modular, local-first AI assistant built in Python. Ratatoskr leverages local l
     Copy the generated pip install command (which often includes specific --index-url flags) and run it in your active virtual environment.
     After successfully installing the GPU-enabled PyTorch, you can then run pip install -r requirements.txt to install the remaining dependencies.
 
-    Download TTS Voice Model:
-        Go to the Piper voice samples page.
-        Find a voice you like (e.g., en_US-lessac-medium).
-        Create a folder named tts_models in the project root.
-        Download both the .onnx and .onnx.json files for your chosen voice and place them in the tts_models folder.
+    Coqui TTS models are downloaded automatically on first run, so no manual download is required.
+
+4.  **Check GPU Availability (Optional):**
+    Run the provided script to verify that PyTorch detects your GPU correctly:
+    ```bash
+    python check_gpu.py
+    ```
 
 
 ## Running the Application
