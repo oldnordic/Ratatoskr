@@ -1,3 +1,5 @@
+"""High level orchestration of policy, memory and tools for the agent."""
+
 from typing import Any, Dict, List
 
 from langchain.tools import Tool
@@ -12,12 +14,14 @@ class AgentEngine:
     """High level orchestrator for the agent."""
 
     def __init__(self, model_name: str, tools: List[Tool]) -> None:
+        # Instantiate the major subsystems used by the agent.
         self.memory = Memory()
         self.policy = Policy(model_name, tools, self.memory)
         self.localizer = Localizer(self.memory)
         self.validator = Validator(self.memory)
 
     def run(self, user_input: str, history: List[Dict[str, Any]]) -> str:
+        """Iteratively decide and execute actions until a final answer is produced."""
         decision = self.policy.next_step(user_input, history)
         if decision.startswith("Action: Click"):
             label = decision.split(":", 1)[1].strip()

@@ -1,3 +1,5 @@
+"""Policy logic that decides which action the agent should take next."""
+
 from typing import Any, Dict, List
 
 from langchain.agents import AgentExecutor, create_react_agent
@@ -12,6 +14,8 @@ class Policy:
     """Decides the next action for the agent."""
 
     def __init__(self, model_name: str, tools: List[Tool], memory: Memory) -> None:
+        # Instantiate the language model and prepare the prompt template used to
+        # drive the reasoning loop.
         self.llm = ChatOllama(model=model_name, temperature=0.7)
         prompt_template = (
             "You are the policy module. Decide the next action or answer.\n"
@@ -24,6 +28,7 @@ class Policy:
         self.executor = AgentExecutor(agent=self.agent, tools=tools, verbose=False)
 
     def next_step(self, user_input: str, history: List[Dict[str, Any]]) -> str:
+        """Return the next action or answer based on ``user_input`` and history."""
         self.memory.add("user_input", user_input)
         chat_history = "\n".join(f"{m['role']}: {m['content']}" for m in history)
         response = self.executor.invoke({"input": user_input, "chat_history": chat_history})

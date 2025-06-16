@@ -1,3 +1,5 @@
+"""Lightweight in-memory storage used by various agent components."""
+
 from typing import Any, Dict, List
 
 
@@ -5,6 +7,7 @@ class Memory:
     """Simple in-memory store for agent components."""
 
     def __init__(self) -> None:
+        # Each entry is a dictionary with ``type`` and ``content`` keys.
         self.entries: List[Dict[str, Any]] = []
 
     def add(self, entry_type: str, content: Any) -> None:
