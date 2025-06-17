@@ -45,7 +45,7 @@ ratatoskr/
 ## Getting Started
 1. **Clone the repo:**
    ```sh
-   git clone <your-fork-or-main-url>
+   git clone https://github.com/oldnordic/Ratatoskr/
    cd ratatoskr
    ```
 2. **Install dependencies:**
