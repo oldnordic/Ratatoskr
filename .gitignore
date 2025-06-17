@@ -1,29 +1,265 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
 # Virtual Environment
 venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
 
 # IDE / Editor Files
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
 
 # OS / Temporary Files
 .DS_Store
-*.swp
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.tmp
+*.temp
 
 # Application Data & Logs
 application.log
+*.log
+logs/
 temp_speech.wav
+*.wav
+*.mp3
+*.flac
+*.ogg
+
+# Model Files and Downloads (LARGE FILES - DO NOT COMMIT)
+models/
 tts_models/
 chroma_db/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.h5
+*.hdf5
+*.pb
+*.pkl
+*.joblib
+*.model
+*.weights
 
-# Environment variables
-.env
-# memory
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+*.index
+*.faiss
+*.pkl
+*.pickle
+
+# Memory and Cache
+memory/
+cache/
+.cache/
+*.cache
 .index.faiss
 .index.pkl
 memory/index.pkl
 memory/index.faiss
+
+# Environment variables and secrets
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.key
+*.pem
+*.crt
+secrets.json
+
+# Configuration files with sensitive data
+config.local.py
+settings.local.py
+
+# Temporary and working files
+temp/
+tmp/
+temp_*
+tmp_*
+*.tmp
+*.temp
 plan.txt
+notes.txt
+todo.txt
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Profiling data
+*.prof
+*.lprof
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Large data files
+*.csv
+*.json
+*.xml
+*.yaml
+*.yml
+data/
+datasets/
+samples/
+
+# Audio and video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.m4a
+*.aac
+*.wma
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Documentation builds
+docs/_build/
+site/
+
+# Node.js (if any frontend components)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+docker-compose.override.yml
+
+# Kubernetes
+*.yaml
+*.yml
+kubeconfig
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Ansible
+*.retry
+
+# Vagrant
+.vagrant/
+
+# Local development files
+local/
+dev/
+development/
+
+# Ignore data and models
+/data/
+!/data/raw/
+!/data/processed/
+!/data/interim/
+!/data/external/
+/data/external/tts_models/
+/data/external/tts_models/*
+/data/processed/chroma_db/
+/data/processed/chroma_db/*
+
+# Ignore logs and outputs
+/logs/
+/reports/results/
+/reports/figures/
+
+# Ignore credentials and secrets
+config/credentials.yaml
+*.env
+.env*
+
+# Ignore Jupyter notebook checkpoints
+notebooks/.ipynb_checkpoints/
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore test outputs
+/tests/**/__pycache__/
+/tests/**/.pytest_cache/
+
+# Only track code, scripts, configs (no secrets), and small sample data
+# Download large files (voice models, Chroma DB, etc.) manually as per README
